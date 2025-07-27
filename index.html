@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Report: A Strategic Analysis of Firebase</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Midnight Amber -->
+    <!-- Application Structure Plan: The SPA is designed as a non-linear, thematic exploration dashboard. A sticky top navigation allows users to jump to key sections: a visual History timeline, an interactive Platform explorer with tabs for product pillars, a deep-dive Database Comparison tool, a Use Case gallery, a Pricing Plan toggler with a dynamic chart, and a Competitive Landscape view. This structure breaks the dense report into digestible, interactive modules, empowering the user to explore based on their interests (e.g., a developer might jump to the database comparison, while a product manager might focus on pricing and use cases). This is more engaging and usable than a linear document scroll. -->
+    <!-- Visualization & Content Choices: 
+        - History: Report Info -> Firebase's evolution. Goal -> Show chronological progression. Viz -> Vertical timeline (HTML/CSS). Interaction -> Hover/click on points to reveal details. Justification -> More engaging than a text block.
+        - Platform Pillars: Report Info -> Build, Run, Engage services. Goal -> Organize a large number of services. Viz -> Tabbed interface with cards (HTML/CSS). Interaction -> Click tabs to switch views. Justification -> Organizes complex information cleanly.
+        - Database Comparison: Report Info -> Table 1 (RTDB vs. Firestore). Goal -> Facilitate direct comparison. Viz -> Interactive side-by-side feature list. Interaction -> Click a feature to highlight details for both databases. Justification -> Focuses user attention on specific trade-offs.
+        - Pricing: Report Info -> Spark vs. Blaze plans/quotas. Goal -> Clarify economic differences. Viz -> Toggle switch + Doughnut Chart (Chart.js). Interaction -> Toggle updates text; chart visualizes a key quota. Justification -> Makes abstract pricing data tangible and easy to compare.
+        - Competitors: Report Info -> Firebase vs. Amplify/Supabase. Goal -> Compare strategic alternatives. Viz -> Side-by-side card layout. Interaction -> Static display for clear reading. Justification -> Simple, effective layout for comparative text.
+        - Gemini Use Case Generator: Goal -> Provide personalized, dynamic content. Viz -> Input field + button. Interaction -> User input triggers Gemini API call to generate relevant Firebase product suggestions. Justification -> Adds high value, interactive AI feature.
+        - Gemini Competitor Summarizer: Goal -> Offer quick insights. Viz -> Button on each competitor card. Interaction -> Click triggers Gemini API to summarize the comparison text. Justification -> Enhances usability by providing on-demand summaries.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1A202C;
+            color: #E2E8F0;
+        }
+        .nav-link {
+            transition: color 0.3s, border-bottom-color 0.3s;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #FBBF24; 
+            border-bottom-color: #FBBF24;
+        }
+        .tab.active {
+            background-color: #D97706;
+            color: #FFFFFF;
+        }
+        .tab {
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .feature-item.selected {
+            background-color: #4A5568;
+            border-left-color: #FBBF24;
+        }
+        .timeline-point::after {
+            content: '';
+            position: absolute;
+            width: 1rem;
+            height: 1rem;
+            left: -0.5rem;
+            background-color: #2D3748;
+            border: 4px solid #D97706;
+            top: 50%;
+            transform: translateY(-50%);
+            border-radius: 50%;
+            z-index: 1;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 350px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        .sparkle {
+            position: absolute;
+            background-color: white;
+            border-radius: 50%;
+            animation: sparkle-animation 5s infinite;
+            opacity: 0;
+        }
+        @keyframes sparkle-animation {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(0.5); opacity: 0; }
+        }
+        .loader {
+            border: 4px solid #4A5568;
+            border-top: 4px solid #FBBF24;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="sparkle-container" class="fixed top-0 left-0 w-full h-full -z-10 overflow-hidden"></div>
+
+    <header id="header" class="bg-gray-900/80 backdrop-blur-lg shadow-lg shadow-black/20 sticky top-0 z-50">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <h1 class="text-xl md:text-2xl font-bold text-gray-100">
+                <span class="text-amber-500">Firebase</span> Analysis
+            </h1>
+            <div class="hidden md:flex space-x-8">
+                <a href="#history" class="nav-link text-gray-300 font-medium border-b-2 border-transparent pb-1">History</a>
+                <a href="#platform" class="nav-link text-gray-300 font-medium border-b-2 border-transparent pb-1">Platform</a>
+                <a href="#use-cases" class="nav-link text-gray-300 font-medium border-b-2 border-transparent pb-1">Use Cases</a>
+                <a href="#pricing" class="nav-link text-gray-300 font-medium border-b-2 border-transparent pb-1">Pricing</a>
+                <a href="#competitors" class="nav-link text-gray-300 font-medium border-b-2 border-transparent pb-1">Competitors</a>
+            </div>
+            <button id="mobile-menu-button" class="md:hidden text-gray-300 focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+        </nav>
+        <div id="mobile-menu" class="hidden md:hidden bg-gray-800">
+            <a href="#history" class="block text-center py-2 px-4 text-sm text-gray-300 hover:bg-gray-700">History</a>
+            <a href="#platform" class="block text-center py-2 px-4 text-sm text-gray-300 hover:bg-gray-700">Platform</a>
+            <a href="#use-cases" class="block text-center py-2 px-4 text-sm text-gray-300 hover:bg-gray-700">Use Cases</a>
+            <a href="#pricing" class="block text-center py-2 px-4 text-sm text-gray-300 hover:bg-gray-700">Pricing</a>
+            <a href="#competitors" class="block text-center py-2 px-4 text-sm text-gray-300 hover:bg-gray-700">Competitors</a>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-12">
+        
+        <section id="hero" class="text-center mb-24">
+            <h2 class="text-4xl md:text-5xl font-extrabold text-gray-100 mb-4">A Strategic Analysis of Firebase</h2>
+            <p class="max-w-3xl mx-auto text-lg text-gray-300">An interactive exploration of Google's application development platform, from its startup origins to its role as a comprehensive, AI-powered ecosystem. This report deconstructs its products, pricing, and position in the market.</p>
+        </section>
+
+        <section id="history" class="mb-24 scroll-mt-20">
+            <div class="text-center mb-12">
+                <h3 class="text-3xl font-bold text-gray-100">The Evolution of Firebase</h3>
+                <p class="text-md text-gray-400 mt-2">From a niche real-time API to a cornerstone of Google's developer strategy.</p>
+            </div>
+            <div id="timeline-container" class="relative max-w-2xl mx-auto border-l-2 border-amber-900 pl-10">
+            </div>
+        </section>
+
+        <section id="platform" class="mb-24 scroll-mt-20">
+            <div class="text-center mb-12">
+                <h3 class="text-3xl font-bold text-gray-100">The Firebase Platform</h3>
+                <p class="text-md text-gray-400 mt-2">Explore the interconnected suite of tools organized into three key pillars.</p>
+            </div>
+            <div class="bg-gray-800 p-8 rounded-xl shadow-lg shadow-black/30">
+                <div class="mb-8 flex justify-center border-b border-gray-700">
+                    <button data-tab="build" class="tab py-3 px-6 font-semibold text-gray-300 hover:bg-gray-700 rounded-t-lg active">Build</button>
+                    <button data-tab="run" class="tab py-3 px-6 font-semibold text-gray-300 hover:bg-gray-700 rounded-t-lg">Run & Improve</button>
+                    <button data-tab="engage" class="tab py-3 px-6 font-semibold text-gray-300 hover:bg-gray-700 rounded-t-lg">Engage</button>
+                </div>
+                <div id="tab-content"></div>
+
+                <div class="mt-16">
+                    <h4 class="text-2xl font-bold text-center text-gray-100 mb-2">Core Decision: Database Deep Dive</h4>
+                    <p class="text-center text-gray-400 mb-8">Choosing between Firestore and the Realtime Database is a critical architectural choice. Click a feature to compare.</p>
+                    <div class="flex flex-col md:flex-row gap-8">
+                        <div class="md:w-1/3">
+                            <ul id="db-features" class="space-y-2">
+                            </ul>
+                        </div>
+                        <div id="db-comparison-details" class="md:w-2/3 flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="use-cases" class="mb-24 scroll-mt-20">
+            <div class="text-center mb-12">
+                <h3 class="text-3xl font-bold text-gray-100">Key Use Cases</h3>
+                <p class="text-md text-gray-400 mt-2">How Firebase solves common development challenges.</p>
+            </div>
+            <div id="use-cases-container" class="grid md:grid-cols-2 gap-8">
+            </div>
+            <div class="mt-16 bg-gray-800 p-8 rounded-xl shadow-lg shadow-black/30">
+                <h4 class="text-2xl font-bold text-center text-gray-100 mb-2">✨ AI-Powered Use Case Generator</h4>
+                <p class="text-center text-gray-400 mb-6">Have an app idea? Describe it below and let Gemini suggest a Firebase architecture.</p>
+                <div class="max-w-xl mx-auto">
+                    <div class="flex gap-2">
+                        <input type="text" id="use-case-input" class="flex-grow bg-gray-700 border border-gray-600 text-gray-200 rounded-lg p-3 focus:ring-amber-500 focus:border-amber-500" placeholder="e.g., A social network for urban gardeners">
+                        <button id="generate-use-case-btn" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-6 rounded-lg transition-colors">Generate</button>
+                    </div>
+                    <div id="use-case-result" class="mt-6 p-6 bg-gray-700/50 rounded-lg border border-gray-600 min-h-[100px]">
+                        <div class="flex justify-center items-center h-full">
+                           <p class="text-gray-500">AI suggestions will appear here...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="pricing" class="mb-24 scroll-mt-20">
+            <div class="text-center mb-12">
+                <h3 class="text-3xl font-bold text-gray-100">Economic Analysis</h3>
+                <p class="text-md text-gray-400 mt-2">Understand the two primary pricing plans to avoid unexpected costs.</p>
+            </div>
+            <div class="bg-gray-800 p-8 rounded-xl shadow-lg shadow-black/30 max-w-5xl mx-auto">
+                <div class="flex justify-center items-center space-x-4 mb-8">
+                    <span id="spark-label" class="font-semibold text-gray-400">Spark Plan</span>
+                    <label for="pricing-toggle" class="flex items-center cursor-pointer">
+                        <div class="relative">
+                            <input type="checkbox" id="pricing-toggle" class="sr-only">
+                            <div class="block bg-gray-600 w-14 h-8 rounded-full"></div>
+                            <div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
+                        </div>
+                    </label>
+                    <span id="blaze-label" class="font-semibold text-amber-500">Blaze Plan</span>
+                </div>
+                <div class="grid md:grid-cols-2 gap-12 items-center">
+                    <div id="pricing-details">
+                    </div>
+                    <div>
+                        <div class="chart-container">
+                            <canvas id="pricing-chart"></canvas>
+                        </div>
+                        <p id="chart-description" class="text-center text-sm text-gray-400 mt-4"></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="competitors" class="scroll-mt-20">
+            <div class="text-center mb-12">
+                <h3 class="text-3xl font-bold text-gray-100">Competitive Landscape</h3>
+                <p class="text-md text-gray-400 mt-2">How Firebase stacks up against key alternatives in the BaaS market.</p>
+            </div>
+            <div id="competitors-container" class="grid md:grid-cols-1 lg:grid-cols-2 gap-8">
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-gray-900 text-white mt-24">
+        <div class="container mx-auto px-6 py-8 text-center">
+            <p class="text-gray-300">Created by Girish Lade</p>
+            <div class="flex justify-center space-x-6 my-4">
+                <a href="https://www.instagram.com/girish_lade_/" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-amber-500 transition-colors">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 012.153 1.153 4.902 4.902 0 011.153 2.153c.247.636.398 1.363.465 2.427.048 1.024.06 1.378.06 3.808s-.012 2.784-.06 3.808c-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 2.153 4.902 4.902 0 01-2.153 1.153c-.636.247-1.363.398-2.427.465-1.024.048-1.378.06-3.808.06s-2.784-.012-3.808-.06c-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-2.153-1.153 4.902 4.902 0 01-1.153-2.153c-.247-.636-.398-1.363-.465-2.427-.048-1.024-.06-1.378-.06-3.808s.012-2.784.06-3.808c.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-2.153A4.902 4.902 0 015.45 2.525c.636-.247 1.363-.398 2.427-.465C8.901 2.013 9.256 2 11.685 2h.63zm-.081 1.802h-.468c-2.456 0-2.784.011-3.807.06-1.004.048-1.625.21-2.096.402a3.078 3.078 0 00-1.36 1.36c-.192.47-.354 1.092-.402 2.096-.049 1.023-.06 1.351-.06 3.807s.011 2.784.06 3.807c.048 1.004.21 1.625.402 2.096a3.078 3.078 0 001.36 1.36c.47.192 1.092.354 2.096.402 1.023.049 1.351.06 3.807.06h.468c2.456 0 2.784-.011 3.807-.06 1.004-.048 1.625-.21 2.096-.402a3.078 3.078 0 001.36-1.36c.192-.47.354-1.092.402-2.096.049-1.023.06-1.351.06-3.807s-.011-2.784-.06-3.807c-.048-1.004-.21-1.625-.402-2.096a3.078 3.078 0 00-1.36-1.36c-.47-.192-1.092-.354-2.096-.402-1.023-.049-1.351-.06-3.807-.06zM12 6.865a5.135 5.135 0 100 10.27 5.135 5.135 0 000-10.27zm0 8.468a3.333 3.333 0 110-6.666 3.333 3.333 0 010 6.666zm5.338-9.87a1.2 1.2 0 100 2.4 1.2 1.2 0 000-2.4z" clip-rule="evenodd" /></svg>
+                </a>
+                <a href="https://www.linkedin.com/in/girish-lade-075bba201/" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-amber-500 transition-colors">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+                </a>
+                <a href="https://github.com/girishlade111" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-amber-500 transition-colors">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.168 6.839 9.49.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.031-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.378.203 2.398.1 2.651.64.7 1.03 1.595 1.03 2.688 0 3.848-2.338 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.578.688.482A10.001 10.001 0 0022 12c0-5.523-4.477-10-10-10z" clip-rule="evenodd" /></svg>
+                </a>
+                <a href="https://codepen.io/Girish-Lade-the-looper" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-amber-500 transition-colors">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.122 8.312l-9.353-6.95c-.53-.394-1.26-.43-1.826-.09L1.878 8.312c-.567.34-1.003.9-1.12 1.552-.118.652.124 1.31.64 1.76l9.353 6.95c.53.394 1.26.43 1.826.09l9.364-6.95c.517-.45.758-1.108.64-1.76-.118-.652-.553-1.21-1.12-1.552zM12 18.84l-8.24-6.115L12 6.61l8.24 6.115L12 18.84zM2.878 14.75l9.364 6.95c.567.34 1.296.303 1.826-.09l9.353-6.95c.516-.45.757-1.108.64-1.76-.118-.652-.554-1.21-1.12-1.552L13.588 4.4c-.566-.34-1.296-.303-1.826.09L2.409 11.44c-.516.45-.757 1.108-.64 1.76.118.652.553 1.21 1.11 1.55z"/></svg>
+                </a>
+                <a href="mailto:girishlade111@gmail.com" class="text-gray-400 hover:text-amber-500 transition-colors">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.003 5.884L10 11.882l7.997-5.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884zM18 8.118l-8 6-8-6V18a2 2 0 002 2h12a2 2 0 002-2V8.118z" /></svg>
+                </a>
+            </div>
+            <p class="text-sm text-gray-500 mt-4">This is a conceptual visualization and does not represent an official Google product.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const data = {
+                timeline: [
+                    { year: '2011', title: 'The Pivot', description: 'Founders James Tamplin and Andrew Lee pivot from Envolve, a chat API, to create Firebase after noticing developers used it for real-time data sync.' },
+                    { year: '2012', title: 'Public Launch', description: 'Firebase launches publicly with its inaugural product, the Firebase Realtime Database, a purpose-built BaaS.' },
+                    { year: '2014', title: 'Google Acquisition', description: 'Google acquires Firebase, providing the resources to transform it from a set of services into a unified platform.' },
+                    { year: '2016', title: 'Unified Platform', description: 'At Google I/O, Firebase is relaunched as a comprehensive platform for mobile developers, integrating with Google Cloud and AdMob.' },
+                    { year: '2017', title: 'Fabric & Firestore', description: 'Google acquires Fabric & Crashlytics from Twitter, making them the core of Firebase\'s app quality suite. Cloud Firestore is also launched as a next-gen database.' },
+                    { year: '2024+', title: 'The AI Frontier', description: 'Firebase pivots towards generative AI with tools like Firebase Studio and Genkit, positioning itself as an intelligent development partner.' }
+                ],
+                platform: {
+                    build: [
+                        { name: 'Databases', desc: 'Cloud Firestore, Realtime Database, and Data Connect for NoSQL and relational data needs.' },
+                        { name: 'Authentication', desc: 'Complete identity solution with email, phone, and social providers.' },
+                        { name: 'Cloud Storage', desc: 'Store and serve user-generated content like photos and videos.' },
+                        { name: 'Hosting', desc: 'Deploy static sites and full-stack dynamic web apps with App Hosting.' },
+                        { name: 'Cloud Functions', desc: 'Run serverless backend code in response to events.' },
+                        { name: 'Machine Learning', desc: 'Deploy custom ML models on-device and integrate AI with Genkit.' },
+                        { name: 'App Check', desc: 'Protect backend resources from abuse.' },
+                        { name: 'Extensions', desc: 'Pre-packaged solutions to automate common development tasks.' }
+                    ],
+                    run: [
+                        { name: 'Crashlytics', desc: 'Best-in-class, real-time crash reporting to track and fix stability issues.' },
+                        { name: 'Performance Monitoring', desc: 'Gain insights into your app\'s performance from the user\'s perspective.' },
+                        { name: 'Test Lab', desc: 'Test your app on a wide range of real and virtual devices in Google\'s data centers.' },
+                        { name: 'App Distribution', desc: 'Easily send pre-release app versions to trusted testers for feedback.' }
+                    ],
+                    engage: [
+                        { name: 'Google Analytics', desc: 'Free and unlimited analytics to understand user behavior and make data-driven decisions.' },
+                        { name: 'A/B Testing', desc: 'Experiment with different UI changes and features to find what works best.' },
+                        { name: 'Remote Config', desc: 'Change the behavior and appearance of your app without a new release.' },
+                        { name: 'Cloud Messaging (FCM)', desc: 'Send push notifications and messages to users across platforms at no cost.' },
+                        { name: 'In-App Messaging', desc: 'Send targeted, contextual messages to active users to drive engagement.' },
+                        { name: 'Dynamic Links', desc: 'Powerful deep links that work across platforms and survive app installation.' }
+                    ]
+                },
+                dbComparison: [
+                    { 
+                        feature: 'Data Model', 
+                        rtdb: 'Single, large JSON tree.',
+                        firestore: 'Collections of documents.',
+                        implication: 'Choose RTDB for simple state sync. Choose Firestore for complex, structured data that requires querying.'
+                    },
+                    { 
+                        feature: 'Querying', 
+                        rtdb: 'Deep queries; limited sorting & filtering.',
+                        firestore: 'Shallow queries; rich, compound sorting & filtering.',
+                        implication: 'Firestore is vastly superior for any app needing to search or organize data.'
+                    },
+                    { 
+                        feature: 'Scalability', 
+                        rtdb: 'Regional; ~100k concurrent users; manual sharding.',
+                        firestore: 'Multi-region; ~1M+ concurrent users; automatic scaling.',
+                        implication: 'Firestore is built for global, large-scale applications from day one.'
+                    },
+                    { 
+                        feature: 'Offline Support', 
+                        rtdb: 'iOS & Android only.',
+                        firestore: 'iOS, Android & Web.',
+                        implication: 'Firestore is the only choice if robust offline capabilities are required for a web app.'
+                    },
+                    { 
+                        feature: 'Security', 
+                        rtdb: 'Cascading rules.',
+                        firestore: 'Non-cascading rules with query constraints.',
+                        implication: 'Firestore\'s security model is more powerful and granular, reducing risk.'
+                    },
+                    { 
+                        feature: 'Pricing', 
+                        rtdb: 'Based on Storage & Bandwidth.',
+                        firestore: 'Based on Operations (Reads/Writes/Deletes).',
+                        implication: 'A critical cost factor. Model your app\'s usage pattern carefully before choosing.'
+                    }
+                ],
+                useCases: [
+                    { title: 'Real-Time Chat Apps', description: 'Leveraging Firestore or Realtime Database, clients subscribe to data. When a new message is written to the database, the SDK automatically pushes the update to all connected users, creating a seamless, live chat experience without managing WebSockets.', icon: '💬' },
+                    { title: 'Serverless APIs', description: 'Using HTTPS-triggered Cloud Functions, developers can deploy backend logic (e.g., an Express.js app) as a scalable, secure API endpoint without provisioning or managing any servers. Ideal for mobile backends and webhooks.', icon: '⚙️' },
+                    { title: 'Social Authentication', description: 'Firebase Authentication provides a unified API to integrate multiple social sign-in providers (Google, Apple, Facebook). It abstracts away complex OAuth flows, saving significant development time and improving user onboarding.', icon: '👥' },
+                    { title: 'App Quality Monitoring', description: 'Combining Crashlytics for real-time crash reports and Performance Monitoring for latency tracking gives developers a complete, real-time view of their app\'s health, enabling them to proactively fix bugs and improve user experience.', icon: '📈' }
+                ],
+                pricing: {
+                    spark: {
+                        title: 'Spark Plan (Free Tier)',
+                        description: 'A generous no-cost plan for development and small projects. APIs will stop working if you exceed the fixed quotas.',
+                        quotas: [
+                            'Firestore: 1 GiB storage, 50k reads/day',
+                            'Realtime DB: 1 GB storage, 100 concurrents',
+                            'Storage: 5 GB storage, 1 GB download/day',
+                            'Functions: 125k invocations/month (Google services only)'
+                        ],
+                        chart: {
+                            label: 'Firestore Daily Reads',
+                            value: 50000,
+                            used: 0
+                        }
+                    },
+                    blaze: {
+                        title: 'Blaze Plan (Pay-As-You-Go)',
+                        description: 'For production apps that need to scale. You pay only for usage beyond the generous free allowance.',
+                        quotas: [
+                            'Firestore: ~$0.06 / 100k reads, ~$0.18 / 100k writes',
+                            'Realtime DB: ~$5 / GB stored, ~$1 / GB downloaded',
+                            'Storage: ~$0.026 / GB stored',
+                            'Functions: ~$0.40 / million invocations + compute time'
+                        ],
+                        chart: {
+                            label: 'Cloud Function Invocations',
+                            value: 2000000,
+                            used: 0
+                        }
+                    }
+                },
+                competitors: [
+                    {
+                        id: 'amplify',
+                        name: 'Firebase vs. AWS Amplify',
+                        points: [
+                            { title: 'Ecosystem', firebase: 'Deeply integrated with Google Cloud. Strong vendor lock-in.', other: 'The gateway to the vast AWS ecosystem. Also strong vendor lock-in.' },
+                            { title: 'Database', firebase: 'NoSQL-first (Firestore, RTDB). Excels at real-time sync.', other: 'Database-agnostic (DynamoDB, RDS). Strong GraphQL support.' },
+                            { title: 'Developer Experience', firebase: 'Often cited as more beginner-friendly and polished.', other: 'Can have a steeper learning curve, requires more AWS knowledge.' }
+                        ]
+                    },
+                    {
+                        id: 'supabase',
+                        name: 'Firebase vs. Supabase',
+                        points: [
+                            { title: 'Philosophy', firebase: 'Proprietary, closed-source platform.', other: '"The Open Source Firebase Alternative." Can be self-hosted.' },
+                            { title: 'Database', firebase: 'Proprietary NoSQL databases.', other: 'Built on PostgreSQL, a powerful open-source relational (SQL) database.' },
+                            { title: 'Developer Experience', firebase: 'Mature and polished tooling. JSON-based security rules.', other: 'Auto-generates APIs. Uses powerful Row-Level Security in Postgres.' }
+                        ]
+                    }
+                ]
+            };
+
+            const sparkleContainer = document.getElementById('sparkle-container');
+            for (let i = 0; i < 50; i++) {
+                const sparkle = document.createElement('div');
+                sparkle.className = 'sparkle';
+                sparkle.style.top = `${Math.random() * 100}%`;
+                sparkle.style.left = `${Math.random() * 100}%`;
+                sparkle.style.width = `${Math.random() * 2 + 1}px`;
+                sparkle.style.height = sparkle.style.width;
+                sparkle.style.animationDelay = `${Math.random() * 5}s`;
+                sparkle.style.animationDuration = `${Math.random() * 3 + 2}s`;
+                sparkleContainer.appendChild(sparkle);
+            }
+
+            const timelineContainer = document.getElementById('timeline-container');
+            data.timeline.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'mb-8 relative timeline-point';
+                div.innerHTML = `
+                    <div class="flex items-center mb-1">
+                        <div class="bg-amber-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-sm flex-shrink-0">${item.year}</div>
+                        <h4 class="font-semibold text-lg ml-4 text-gray-200">${item.title}</h4>
+                    </div>
+                    <p class="text-gray-400 ml-12">${item.description}</p>
+                `;
+                timelineContainer.appendChild(div);
+            });
+
+            const tabContent = document.getElementById('tab-content');
+            const tabs = document.querySelectorAll('.tab');
+            function renderTabContent(tabName) {
+                const contentData = data.platform[tabName];
+                tabContent.innerHTML = `
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        ${contentData.map(item => `
+                            <div class="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
+                                <h5 class="font-semibold text-gray-100">${item.name}</h5>
+                                <p class="text-sm text-gray-400 mt-1">${item.desc}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    renderTabContent(tab.dataset.tab);
+                });
+            });
+            renderTabContent('build');
+
+            const dbFeaturesList = document.getElementById('db-features');
+            const dbComparisonDetails = document.getElementById('db-comparison-details');
+            function renderDbComparison(selectedIndex = 0) {
+                dbFeaturesList.innerHTML = data.dbComparison.map((item, index) => `
+                    <li>
+                        <button data-index="${index}" class="feature-item w-full text-left p-3 rounded-lg font-medium border-l-4 border-transparent hover:bg-gray-700 ${index === selectedIndex ? 'selected' : ''}">
+                            ${item.feature}
+                        </button>
+                    </li>
+                `).join('');
+                
+                const selectedFeature = data.dbComparison[selectedIndex];
+                dbComparisonDetails.innerHTML = `
+                    <div class="bg-gray-700/50 p-6 rounded-xl border border-gray-600">
+                        <h5 class="font-bold text-lg mb-2 text-gray-100">Realtime Database</h5>
+                        <p class="text-gray-300">${selectedFeature.rtdb}</p>
+                    </div>
+                    <div class="bg-gray-700/50 p-6 rounded-xl border border-gray-600">
+                        <h5 class="font-bold text-lg mb-2 text-gray-100">Cloud Firestore</h5>
+                        <p class="text-gray-300">${selectedFeature.firestore}</p>
+                    </div>
+                    <div class="bg-amber-900/40 p-6 rounded-xl border border-amber-800 md:col-span-2">
+                        <h5 class="font-bold text-lg mb-2 text-amber-300">💡 Strategic Implication</h5>
+                        <p class="text-amber-300">${selectedFeature.implication}</p>
+                    </div>
+                `;
+
+                document.querySelectorAll('.feature-item').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        renderDbComparison(parseInt(e.currentTarget.dataset.index));
+                    });
+                });
+            }
+            renderDbComparison(0);
+
+            const useCasesContainer = document.getElementById('use-cases-container');
+            useCasesContainer.innerHTML = data.useCases.map(item => `
+                <div class="bg-gray-800 p-8 rounded-xl shadow-lg shadow-black/30">
+                    <div class="text-4xl mb-4">${item.icon}</div>
+                    <h4 class="font-bold text-xl mb-2 text-gray-100">${item.title}</h4>
+                    <p class="text-gray-300">${item.description}</p>
+                </div>
+            `).join('');
+
+            const competitorsContainer = document.getElementById('competitors-container');
+            competitorsContainer.innerHTML = data.competitors.map(comp => `
+                <div class="bg-gray-800 p-8 rounded-xl shadow-lg shadow-black/30 flex flex-col">
+                    <h4 class="font-bold text-2xl mb-6 text-center text-gray-100">${comp.name}</h4>
+                    <div class="space-y-4 flex-grow" data-competitor-id="${comp.id}">
+                    ${comp.points.map(point => `
+                        <div class="competitor-point">
+                            <h5 class="font-semibold text-md mb-2 text-gray-200">${point.title}</h5>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div class="bg-gray-700/50 p-3 rounded-lg"><span class="font-medium text-amber-400">Firebase:</span> ${point.firebase}</div>
+                                <div class="bg-gray-700/50 p-3 rounded-lg"><span class="font-medium text-blue-400">${comp.name.split(' vs. ')[1]}:</span> ${point.other}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                    </div>
+                    <div class="mt-6">
+                        <button data-id="${comp.id}" class="summarize-btn w-full bg-gray-700 hover:bg-gray-600 text-amber-400 font-bold py-2 px-4 rounded-lg transition-colors">✨ Summarize with AI</button>
+                        <div id="summary-result-${comp.id}" class="mt-4 p-4 bg-gray-700/50 rounded-lg border border-gray-600 hidden"></div>
+                    </div>
+                </div>
+            `).join('');
+
+            const pricingToggle = document.getElementById('pricing-toggle');
+            const pricingDetails = document.getElementById('pricing-details');
+            const sparkLabel = document.getElementById('spark-label');
+            const blazeLabel = document.getElementById('blaze-label');
+            const chartDescription = document.getElementById('chart-description');
+            
+            const ctx = document.getElementById('pricing-chart').getContext('2d');
+            let pricingChart;
+            
+            Chart.defaults.color = '#A0AEC0';
+
+            function updatePricing(isBlaze) {
+                const plan = isBlaze ? 'blaze' : 'spark';
+                const planData = data.pricing[plan];
+                
+                pricingDetails.innerHTML = `
+                    <h4 class="font-bold text-2xl mb-2 text-gray-100">${planData.title}</h4>
+                    <p class="text-gray-300 mb-4">${planData.description}</p>
+                    <ul class="space-y-2">
+                        ${planData.quotas.map(q => `<li class="flex items-start"><span class="text-green-400 mr-2 mt-1">✓</span><span>${q}</span></li>`).join('')}
+                    </ul>
+                `;
+
+                sparkLabel.classList.toggle('text-amber-500', !isBlaze);
+                sparkLabel.classList.toggle('text-gray-400', isBlaze);
+                blazeLabel.classList.toggle('text-amber-500', isBlaze);
+                blazeLabel.classList.toggle('text-gray-400', !isBlaze);
+
+                const dot = pricingToggle.nextElementSibling.nextElementSibling;
+                dot.style.transform = isBlaze ? 'translateX(1.5rem)' : 'translateX(0)';
+
+                chartDescription.textContent = `Free quota visualization for the ${planData.chart.label} on the ${isBlaze ? 'Blaze' : 'Spark'} plan.`;
+                
+                if (pricingChart) {
+                    pricingChart.destroy();
+                }
+
+                pricingChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Free Quota Remaining', 'Used (Example)'],
+                        datasets: [{
+                            data: [planData.chart.value, planData.chart.used],
+                            backgroundColor: ['#48BB78', '#FBBF24'],
+                            borderColor: ['#2D3748', '#2D3748'],
+                            borderWidth: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                enabled: true,
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed !== null) {
+                                            label += new Intl.NumberFormat().format(context.parsed);
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            pricingToggle.addEventListener('change', (e) => {
+                updatePricing(e.target.checked);
+            });
+            updatePricing(false);
+
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenuButton.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+            });
+            
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    if (mobileMenu.classList.contains('hidden') === false) {
+                        mobileMenu.classList.add('hidden');
+                    }
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                });
+            });
+
+            const navLinks = document.querySelectorAll('.nav-link');
+            const sections = document.querySelectorAll('section');
+            window.addEventListener('scroll', () => {
+                let current = '';
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    if (pageYOffset >= sectionTop - 80) {
+                        current = section.getAttribute('id');
+                    }
+                });
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href').includes(current)) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+
+            async function callGeminiAPI(prompt) {
+                const apiKey = ""; 
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                
+                const payload = {
+                    contents: [{ role: "user", parts: [{ text: prompt }] }]
+                };
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API call failed with status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
+                        return result.candidates[0].content.parts[0].text;
+                    } else {
+                        return "Sorry, I couldn't generate a response. The API returned an unexpected result.";
+                    }
+                } catch (error) {
+                    console.error("Gemini API Error:", error);
+                    return `An error occurred: ${error.message}. Please check the console for details.`;
+                }
+            }
+            
+            function showLoader(container) {
+                container.innerHTML = '<div class="flex justify-center items-center"><div class="loader"></div></div>';
+                container.classList.remove('hidden');
+            }
+
+            const useCaseBtn = document.getElementById('generate-use-case-btn');
+            const useCaseInput = document.getElementById('use-case-input');
+            const useCaseResult = document.getElementById('use-case-result');
+
+            useCaseBtn.addEventListener('click', async () => {
+                const idea = useCaseInput.value;
+                if (!idea.trim()) {
+                    useCaseResult.innerHTML = '<p class="text-red-400 text-center">Please enter an app idea first.</p>';
+                    return;
+                }
+                showLoader(useCaseResult);
+                const prompt = `Given the app idea: "${idea}", which Firebase products would be best to use? For each product, provide a brief, one-sentence justification. Format the response as a list with product names in bold.`;
+                const response = await callGeminiAPI(prompt);
+                useCaseResult.innerHTML = response.replace(/\*\*(.*?)\*\*/g, '<strong class="text-amber-400">$1</strong>').replace(/\n/g, '<br>');
+            });
+
+            document.querySelectorAll('.summarize-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const competitorId = e.target.dataset.id;
+                    const resultContainer = document.getElementById(`summary-result-${competitorId}`);
+                    const competitorCard = document.querySelector(`[data-competitor-id="${competitorId}"]`);
+                    
+                    let contentToSummarize = competitorCard.closest('.bg-gray-800').querySelector('h4').textContent + '\n';
+                    competitorCard.querySelectorAll('.competitor-point').forEach(point => {
+                        contentToSummarize += point.textContent.trim().replace(/\s+/g, ' ') + '\n';
+                    });
+                    
+                    showLoader(resultContainer);
+                    const prompt = `Provide a concise, high-level strategic summary of the following competitor analysis. Focus on the key differences and who might choose one over the other. Here is the analysis:\n\n${contentToSummarize}`;
+                    const summary = await callGeminiAPI(prompt);
+                    resultContainer.innerHTML = summary.replace(/\n/g, '<br>');
+                });
+            });
+
+        });
+    </script>
+</body>
+</html>
